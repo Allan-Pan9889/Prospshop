@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: prospshop-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: prospshop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: prospshop
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - prospshop_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prospshop -d prospshop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  prospshop_pgdata:

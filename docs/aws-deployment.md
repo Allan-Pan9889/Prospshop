@@ -2,6 +2,9 @@
 
 本文档说明如何将 ProspShop（Next.js 15 + PostgreSQL + NextAuth）部署到 AWS。
 
+> **当前推荐方案：单台 EC2 + 本机 PostgreSQL（Docker）**  
+> 不使用 RDS，以控制成本。应用与数据库运行在同一台服务器上，数据库仅监听 `127.0.0.1`，不对外暴露。
+
 ---
 
 ## 1. 概述
@@ -11,36 +14,33 @@
 | 项目 | 说明 |
 |------|------|
 | 框架 | Next.js 15 App Router（SSR + API Routes） |
-| 数据库 | PostgreSQL（Drizzle ORM） |
+| 数据库 | PostgreSQL 16（本机 Docker 容器） |
 | 认证 | NextAuth.js v5（Credentials + JWT） |
 | 构建 | `npm run build` 生成约 597 个静态/预渲染页面 |
-| 运行时 | 需连接 PostgreSQL；无 DB 时回退到 JSON 商品数据 |
+| 运行时 | 连接本机 PostgreSQL；无 DB 时回退到 JSON 商品数据 |
 
-### 推荐架构
+### 推荐架构（低成本）
 
 ```
-                    ┌─────────────┐
-  用户 ──HTTPS──▶  │ CloudFront  │（可选）
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  ALB /      │
-                    │  Amplify    │  Next.js 应用
-                    └──────┬──────┘
-                           │ 5432（VPC 内网）
-                    ┌──────▼──────┐
-                    │  RDS        │  PostgreSQL 16
-                    │  PostgreSQL │
-                    └─────────────┘
+  用户 ──HTTPS──▶  Nginx（443）
+                      │
+                      ▼
+                 Next.js（PM2，:3000）
+                      │
+                      ▼ 127.0.0.1:5432
+                 PostgreSQL（Docker）
+                      │
+                      ▼
+                 EBS 卷持久化数据
 ```
 
-**方案选择：**
+**一台 EC2 搞定：** Web 应用 + 数据库 + 反向代理，无需 RDS、ALB、ECS。
 
-| 方案 | 适用场景 | 复杂度 |
-|------|----------|--------|
-| [方案 A：Amplify](#方案-aaws-amplify推荐快速上线) | 快速上线、自动 CI/CD | ⭐⭐ |
-| [方案 B：EC2 + Docker](#方案-bec2--docker) | 与本地环境一致、成本可控 | ⭐⭐⭐ |
-| [方案 C：ECS Fargate](#方案-cecs-fargate--rds生产推荐) | 生产环境、可扩展 | ⭐⭐⭐⭐ |
+| 方案 | 适用场景 | 月成本（约） |
+|------|----------|--------------|
+| **[方案 A：EC2 + 本机 PostgreSQL](#方案-aec2--本机-postgresql推荐)** | 正式运营、成本优先 | ~$15–25 |
+| [方案 B：GitHub Actions 自动部署](#方案-bgithub-actions-自动部署到-ec2) | 同上 + 自动发布 | ~$15–25 |
+| [附录：RDS / Amplify / ECS](#附录其他方案不推荐) | 预算充足时再考虑 | $50+ |
 
 ---
 
@@ -48,90 +48,118 @@
 
 ### 2.1 AWS 账号与工具
 
-- AWS 账号（建议区域：`ap-south-1` 孟买，离 Chennai 较近）
-- 已安装 [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 并完成 `aws configure`
-- 代码已在 GitHub：`https://github.com/Allan-Pan9889/Prospshop`
+- AWS 账号（建议区域：`ap-south-1` 孟买）
+- SSH 密钥对
+- 代码仓库：https://github.com/Allan-Pan9889/Prospshop
 
 ### 2.2 环境变量
 
-生产环境必须配置以下变量（**不要**提交到 Git）：
+| 变量 | 说明 | 生产示例 |
+|------|------|----------|
+| `DATABASE_URL` | 本机 PostgreSQL 连接串 | `postgresql://prospshop:<密码>@127.0.0.1:5432/prospshop` |
+| `POSTGRES_PASSWORD` | Docker 数据库密码（与上面一致） | 强密码 |
+| `AUTH_SECRET` | NextAuth 签名密钥 | `openssl rand -base64 32` |
+| `AUTH_URL` | 站点完整 URL | `https://www.prospshop.com` |
+| `NODE_ENV` | 生产环境 | `production` |
 
-| 变量 | 说明 | 示例 |
-|------|------|------|
-| `DATABASE_URL` | PostgreSQL 连接串 | `postgresql://user:pass@host:5432/prospshop?sslmode=require` |
-| `AUTH_SECRET` | NextAuth 签名密钥 | `openssl rand -base64 32` 生成 |
-| `AUTH_URL` | 站点完整 URL（含协议） | `https://www.prospshop.com` |
-| `NODE_ENV` | 固定为 `production` | `production` |
-
-生成 `AUTH_SECRET`：
+生成密钥：
 
 ```bash
-openssl rand -base64 32
+openssl rand -base64 32   # AUTH_SECRET
+openssl rand -base64 24   # POSTGRES_PASSWORD（示例）
 ```
 
-> **重要：** `AUTH_URL` 必须与用户访问的域名完全一致（含 `https`），否则登录回调会失败。
+> **重要：** `AUTH_URL` 必须与用户浏览器地址栏完全一致（含 `https`）。
+
+> **本机数据库无需** `?sslmode=require`（仅 RDS 等远程托管数据库需要）。
 
 ---
 
-## 3. 创建 RDS PostgreSQL
+## 方案 A：EC2 + 本机 PostgreSQL（推荐）
 
-三种方案共用此步骤。
+### A.1 创建 EC2 实例
 
-### 3.1 控制台创建
+| 配置 | 建议 |
+|------|------|
+| AMI | Amazon Linux 2023 或 Ubuntu 22.04 |
+| 实例类型 | `t3.small`（2 vCPU / 2GB，构建 + DB 够用） |
+| 存储 | **40GB gp3**（系统 + 数据库 + 构建缓存） |
+| 安全组入站 | 22（SSH，仅限运维 IP）、80、443 |
+| 安全组入站 | **不要开放 5432** |
+| 弹性 IP | 建议绑定，避免重启换 IP |
 
-1. 打开 **RDS → Create database**
-2. 引擎：**PostgreSQL 16**
-3. 模板：**Free tier**（测试）或 **Production**
-4. 设置：
-   - DB identifier：`prospshop-db`
-   - Master username：`prospshop`
-   - Master password：强密码（记录备用）
-   - DB name：`prospshop`
-5. 实例：`db.t4g.micro`（测试）/ `db.t4g.small`（生产）
-6. **Storage**：默认 20GB gp3
-7. **Connectivity**：
-   - VPC：默认或专用 VPC
-   - **Public access**：测试可 Yes；生产建议 No，应用与 DB 同 VPC
-   - VPC security group：新建 `prospshop-db-sg`
-8. **Additional configuration → Initial database name**：`prospshop`
-
-### 3.2 安全组规则
-
-`prospshop-db-sg` 入站规则：
-
-| 类型 | 端口 | 来源 | 说明 |
-|------|------|------|------|
-| PostgreSQL | 5432 | 应用安全组 ID | 生产推荐 |
-| PostgreSQL | 5432 | 你的公网 IP/32 | 仅本地初始化 DB 时临时开放 |
-
-### 3.3 连接串格式
+### A.2 安装依赖
 
 ```bash
-DATABASE_URL=postgresql://prospshop:<PASSWORD>@<RDS_ENDPOINT>:5432/prospshop?sslmode=require
+# Amazon Linux 2023
+sudo dnf update -y
+sudo dnf install -y docker git nginx
+sudo systemctl enable --now docker
+sudo usermod -aG docker ec2-user
+# 重新登录 SSH 使 docker 组生效
+
+# Docker Compose 插件
+sudo dnf install -y docker-compose-plugin
+
+# Node.js 22
+curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
+sudo dnf install -y nodejs
 ```
 
-RDS 控制台 → 数据库 → **Connectivity & security** → **Endpoint** 即为 `<RDS_ENDPOINT>`。
+Ubuntu 22.04 将 `dnf` 换为 `apt`，Docker 安装方式参考 [Docker 官方文档](https://docs.docker.com/engine/install/ubuntu/)。
 
----
-
-## 4. 初始化数据库
-
-在**能访问 RDS 的机器**上执行（本地电脑、EC2、CloudShell 均可）：
+### A.3 拉取代码
 
 ```bash
 git clone https://github.com/Allan-Pan9889/Prospshop.git
 cd Prospshop
-npm install
+```
 
-# 写入生产环境变量
+### A.4 启动本机 PostgreSQL
+
+创建 `.env`（供 Docker Compose 读取，**不要提交 Git**）：
+
+```bash
+cat > .env <<'EOF'
+POSTGRES_PASSWORD=你的强密码
+EOF
+```
+
+启动数据库（使用生产 compose 文件，仅绑定本机）：
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml ps
+```
+
+验证：
+
+```bash
+docker exec prospshop-db pg_isready -U prospshop -d prospshop
+```
+
+### A.5 配置应用环境变量
+
+```bash
 cp .env.example .env.local
-# 编辑 .env.local，填入 DATABASE_URL、AUTH_SECRET、AUTH_URL
+```
 
-# 推送表结构
+编辑 `.env.local`：
+
+```bash
+DATABASE_URL=postgresql://prospshop:你的强密码@127.0.0.1:5432/prospshop
+AUTH_SECRET=你的AUTH_SECRET
+AUTH_URL=https://www.prospshop.com
+NODE_ENV=production
+```
+
+### A.6 初始化数据库
+
+```bash
+npm ci
 npm run db:push
-
-# 导入商品数据 + 创建管理员（约 570 个商品）
 npm run db:seed
+npm run build
 ```
 
 初始化完成后：
@@ -139,138 +167,21 @@ npm run db:seed
 - 管理员：`admin@prospshop.in` / `admin123456`
 - **部署后务必修改管理员密码**
 
-可选补丁脚本：
-
-```bash
-npm run db:patch      # 修复特定商品数据
-npm run db:sync-json  # 同步 JSON 与 DB
-```
-
----
-
-## 方案 A：AWS Amplify（推荐快速上线）
-
-Amplify 支持 Next.js SSR，与 GitHub 自动集成，适合快速上线。
-
-### A.1 创建应用
-
-1. **Amplify → Hosting → Get started → GitHub**
-2. 选择仓库 `Allan-Pan9889/Prospshop`，分支 `main`
-3. 构建设置（Amplify 通常自动检测 Next.js）：
-
-```yaml
-version: 1
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - npm ci
-    build:
-      commands:
-        - npm run build
-  artifacts:
-    baseDirectory: .next
-    files:
-      - '**/*'
-  cache:
-    paths:
-      - node_modules/**/*
-      - .next/cache/**/*
-```
-
-> 若 Amplify Gen 2 自动检测 Next.js，可保留默认配置，仅需确认 build 命令为 `npm run build`。
-
-### A.2 环境变量
-
-Amplify 控制台 → **App settings → Environment variables**：
-
-```
-DATABASE_URL=postgresql://...
-AUTH_SECRET=...
-AUTH_URL=https://<your-amplify-domain>.amplifyapp.com
-NODE_ENV=production
-```
-
-### A.3 连接 RDS（VPC）
-
-RDS 若设为 **Private**，Amplify 需配置 VPC：
-
-1. Amplify → **App settings → VPC**
-2. 选择与 RDS 相同的 VPC、子网
-3. 应用安全组允许出站到 RDS 5432
-
-### A.4 自定义域名
-
-1. Amplify → **Domain management → Add domain**
-2. 在 Route 53 或域名 DNS 添加 CNAME
-3. 更新 `AUTH_URL` 为自定义域名，重新部署
-
-### A.5 验证
-
-- 首页、Shop、商品详情页可访问
-- 注册 / 登录正常
-- `/admin` 管理员可进入
-- `/my-account` 可查看订单历史
-
----
-
-## 方案 B：EC2 + Docker
-
-与本地 `docker compose` 最接近，适合单实例部署。
-
-### B.1 启动 EC2
-
-| 配置 | 建议 |
-|------|------|
-| AMI | Amazon Linux 2023 或 Ubuntu 22.04 |
-| 实例类型 | `t3.small`（2 vCPU / 2GB，构建需内存） |
-| 存储 | 30GB gp3 |
-| 安全组 | 入站 22（SSH）、80、443；出站全部 |
-
-### B.2 安装依赖
-
-```bash
-# Amazon Linux 2023 示例
-sudo dnf update -y
-sudo dnf install -y docker git
-sudo systemctl enable --now docker
-sudo usermod -aG docker ec2-user
-
-# 安装 Node.js 22
-curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
-sudo dnf install -y nodejs
-```
-
-### B.3 部署应用
-
-```bash
-git clone https://github.com/Allan-Pan9889/Prospshop.git
-cd Prospshop
-
-cp .env.example .env.local
-# 编辑 .env.local（DATABASE_URL 指向 RDS）
-
-npm ci
-npm run db:push
-npm run db:seed
-npm run build
-```
-
-### B.4 使用 PM2 守护进程
+### A.7 使用 PM2 守护 Next.js
 
 ```bash
 sudo npm install -g pm2
 pm2 start npm --name prospshop -- start
 pm2 save
-pm2 startup
+pm2 startup    # 按提示执行输出的 sudo 命令
 ```
 
-应用默认监听 **3000** 端口。
+应用监听 **3000** 端口。
 
-### B.5 Nginx 反向代理 + HTTPS
+### A.8 Nginx 反向代理 + HTTPS
 
 ```bash
-sudo dnf install -y nginx certbot python3-certbot-nginx
+sudo dnf install -y certbot python3-certbot-nginx
 ```
 
 `/etc/nginx/conf.d/prospshop.conf`：
@@ -278,7 +189,7 @@ sudo dnf install -y nginx certbot python3-certbot-nginx
 ```nginx
 server {
     listen 80;
-    server_name www.prospshop.com;
+    server_name www.prospshop.com prospshop.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -296,306 +207,261 @@ server {
 
 ```bash
 sudo nginx -t && sudo systemctl enable --now nginx
-sudo certbot --nginx -d www.prospshop.com
+sudo certbot --nginx -d www.prospshop.com -d prospshop.com
 ```
 
-更新 `.env.local` 中 `AUTH_URL=https://www.prospshop.com`，重启应用：
+证书签发后，确认 `.env.local` 中 `AUTH_URL` 与域名一致，重启应用：
 
 ```bash
 pm2 restart prospshop
 ```
 
----
-
-## 方案 C：ECS Fargate + RDS（生产推荐）
-
-适合需要自动扩缩、高可用的生产环境。
-
-### C.1 组件清单
-
-| 组件 | AWS 服务 |
-|------|----------|
-| 容器镜像 | ECR |
-| 运行 | ECS Fargate |
-| 负载均衡 | Application Load Balancer |
-| 数据库 | RDS PostgreSQL |
-| 密钥 | Secrets Manager |
-| 域名 / HTTPS | Route 53 + ACM |
-| 日志 | CloudWatch Logs |
-
-### C.2 Dockerfile
-
-在项目根目录创建 `Dockerfile`：
-
-```dockerfile
-FROM node:22-alpine AS base
-
-FROM base AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
-
-FROM base AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-CMD ["node", "server.js"]
-```
-
-> **注意：** Dockerfile 使用 Next.js `standalone` 输出。需在 `next.config.ts` 中加入：
-
-```typescript
-const nextConfig: NextConfig = {
-  output: "standalone",
-  images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "prospshop.in" },
-    ],
-  },
-};
-```
-
-`.dockerignore`：
-
-```
-node_modules
-.next
-.git
-.env*.local
-drizzle
-```
-
-### C.3 构建并推送镜像
+### A.9 日常运维命令
 
 ```bash
-aws ecr create-repository --repository-name prospshop --region ap-south-1
+# 应用
+pm2 status
+pm2 logs prospshop
+pm2 restart prospshop
 
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-ECR_URI=$AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/prospshop
+# 数据库
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs postgres
+docker compose -f docker-compose.prod.yml restart postgres
 
-aws ecr get-login-password --region ap-south-1 | \
-  docker login --username AWS --password-stdin $ECR_URI
-
-docker build -t prospshop .
-docker tag prospshop:latest $ECR_URI:latest
-docker push $ECR_URI:latest
-```
-
-### C.4 Secrets Manager
-
-存储敏感环境变量：
-
-```bash
-aws secretsmanager create-secret \
-  --name prospshop/prod \
-  --secret-string '{
-    "DATABASE_URL":"postgresql://...",
-    "AUTH_SECRET":"...",
-    "AUTH_URL":"https://www.prospshop.com"
-  }'
-```
-
-ECS Task Definition 中通过 `secrets` 字段注入。
-
-### C.5 ECS 服务要点
-
-- **Task CPU/Memory**：512 CPU / 1024 MB 起步；构建已在镜像内完成
-- **Desired count**：生产至少 2（跨可用区）
-- **Health check**：ALB 路径 `/`，期望 200
-- **Security Group**：应用 SG 出站 → RDS SG 5432
-- **环境变量**：`NODE_ENV=production`
-
-### C.6 数据库迁移
-
-镜像内不含 `drizzle-kit`。迁移应在 CI/CD 或一次性 Task 中执行：
-
-```bash
-# 本地或 CI，指向生产 RDS
-DATABASE_URL=... npm run db:push
-DATABASE_URL=... npm run db:seed
+# 更新代码
+cd ~/Prospshop
+git pull
+npm ci
+npm run build
+pm2 restart prospshop
 ```
 
 ---
 
-## 5. 域名与 HTTPS
+## 3. 数据库备份（必做）
 
-| 方案 | HTTPS 配置 |
-|------|------------|
-| Amplify | 控制台自动签发 ACM 证书 |
-| EC2 | Certbot + Nginx |
-| ECS | ACM 证书挂载到 ALB（443 → Target Group 3000） |
+本机数据库没有 RDS 自动备份，需自行配置。
 
-DNS 示例（Route 53）：
+### 3.1 手动备份
 
+```bash
+mkdir -p ~/backups
+docker exec prospshop-db pg_dump -U prospshop prospshop \
+  | gzip > ~/backups/prospshop-$(date +%F).sql.gz
 ```
-www.prospshop.com  CNAME  <ALB 或 Amplify 域名>
+
+### 3.2 定时备份（cron，每天 3:00）
+
+```bash
+crontab -e
+```
+
+添加：
+
+```cron
+0 3 * * * docker exec prospshop-db pg_dump -U prospshop prospshop | gzip > /home/ec2-user/backups/prospshop-$(date +\%F).sql.gz
+```
+
+### 3.3 上传到 S3（推荐）
+
+```bash
+# 安装 AWS CLI 后
+aws s3 cp ~/backups/prospshop-$(date +%F).sql.gz s3://你的备份桶/prospshop/
+```
+
+cron 示例（备份 + 上传 + 保留本地 7 天）：
+
+```cron
+0 3 * * * docker exec prospshop-db pg_dump -U prospshop prospshop | gzip > /home/ec2-user/backups/prospshop-$(date +\%F).sql.gz && aws s3 cp /home/ec2-user/backups/prospshop-$(date +\%F).sql.gz s3://你的备份桶/prospshop/ && find /home/ec2-user/backups -name "*.sql.gz" -mtime +7 -delete
+```
+
+### 3.4 恢复备份
+
+```bash
+gunzip -c ~/backups/prospshop-2026-07-08.sql.gz | docker exec -i prospshop-db psql -U prospshop -d prospshop
 ```
 
 ---
 
-## 6. 部署后检查清单
+## 4. 部署后检查清单
 
 - [ ] 首页、Shop、商品详情正常加载
-- [ ] 图片来自 `prospshop.in` CDN 可显示（已在 `next.config.ts` 配置）
 - [ ] 用户注册 / 登录 / 登出正常
 - [ ] 登录用户下单后 `/my-account` 可见订单
-- [ ] `/admin` 仅 admin 角色可访问
+- [ ] `/admin` 仅 admin 可访问
 - [ ] 已修改默认管理员密码
-- [ ] RDS 未对 `0.0.0.0/0` 开放 5432
+- [ ] **5432 未对公网开放**（`ss -tlnp | grep 5432` 应只看到 `127.0.0.1`）
 - [ ] `AUTH_URL` 与浏览器地址栏一致
-- [ ] CloudWatch / Amplify 日志无持续报错
+- [ ] 定时备份 cron 已配置
+- [ ] PM2、Docker 均设置开机自启
 
 ---
 
-## 7. CI/CD 示例（GitHub Actions → ECR → ECS）
+## 方案 B：GitHub Actions 自动部署到 EC2
 
-`.github/workflows/deploy-ecs.yml` 参考：
+在方案 A 服务器就绪后，push 到 `main` 自动部署。
+
+`.github/workflows/deploy-ec2.yml`：
 
 ```yaml
-name: Deploy to ECS
+name: Deploy to EC2
 
 on:
   push:
     branches: [main]
 
-env:
-  AWS_REGION: ap-south-1
-  ECR_REPOSITORY: prospshop
-  ECS_SERVICE: prospshop-service
-  ECS_CLUSTER: prospshop-cluster
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-      - name: Deploy to ECS
-        run: |
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE \
-            --force-new-deployment
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/Prospshop
+            git pull origin main
+            npm ci
+            npm run build
+            pm2 restart prospshop
 ```
 
-GitHub Secrets 需配置：`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`。
+GitHub Secrets：
+
+| Secret | 说明 |
+|--------|------|
+| `EC2_HOST` | EC2 公网 IP 或域名 |
+| `EC2_SSH_KEY` | SSH 私钥全文 |
+
+> 数据库迁移（`db:push` / `db:seed`）仅在 schema 变更时手动执行，不要每次 deploy 都 seed。
 
 ---
 
-## 8. 常见问题
+## 5. 域名与 HTTPS
 
-### 构建超时 / 内存不足
+- DNS：`www.prospshop.com` → EC2 弹性 IP（A 记录）
+- HTTPS：Certbot + Nginx（见 A.8）
+- 证书自动续期：`certbot renew` 由 systemd timer 处理
 
-`npm run build` 需预渲染 597 页，建议构建环境至少 **2GB RAM**。Amplify 默认构建实例通常足够；EC2 请用 `t3.small` 及以上。
+---
 
-### 登录后跳回首页 / Session 丢失
+## 6. 常见问题
+
+### 构建内存不足
+
+`npm run build` 需预渲染 597 页，至少 **2GB RAM**。若 OOM，临时加 swap：
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+### 登录后 Session 丢失
 
 - 检查 `AUTH_URL` 是否与访问域名一致
-- 确认 ALB / Nginx 转发了 `X-Forwarded-Proto` 和 `Host`
-- `AUTH_SECRET` 在多实例间必须相同
+- Nginx 需转发 `X-Forwarded-Proto` 和 `Host`（见 A.8 配置）
 
-### 商品页数据与 Admin 不一致
+### 数据库连接失败
 
-- 运行时优先读 PostgreSQL；构建阶段读 JSON
-- 确保已执行 `npm run db:seed`
-- 修改 JSON 后执行 `npm run db:sync-json` 和 `npm run db:patch`
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs postgres
+```
 
-### RDS 连接失败
+确认 `DATABASE_URL` 使用 `127.0.0.1`，密码与 `.env` 中 `POSTGRES_PASSWORD` 一致。
 
-- 安全组是否允许应用 → 5432
-- 连接串是否含 `?sslmode=require`（RDS 默认要求 SSL）
-- RDS 与应用是否在同一 VPC（私有 RDS）
+### 磁盘空间不足
 
-### 图片无法显示
+```bash
+df -h
+docker system df
+```
 
-确认 `next.config.ts` 中 `remotePatterns` 包含 `prospshop.in`（已配置）。
+定期清理旧备份、`.next` 缓存；商品图片走 CDN，不占本地盘。
 
----
+### 商品数据与 Admin 不一致
 
-## 9. 成本参考（ap-south-1，按需估算）
-
-| 资源 | 测试环境 / 月 | 生产环境 / 月 |
-|------|---------------|---------------|
-| RDS db.t4g.micro | ~$15 | — |
-| RDS db.t4g.small | — | ~$30 |
-| EC2 t3.small | ~$15 | — |
-| ECS Fargate 0.5 vCPU × 2 | — | ~$30 |
-| ALB | — | ~$20 |
-| Amplify Hosting | ~$5–15（按流量） | ~$15–50 |
-| CloudFront（可选） | ~$1–5 | 按流量 |
-
-> 实际费用以 AWS 账单为准；测试环境可用 Free Tier 降低首年成本。
+```bash
+npm run db:seed    # 仅首次或空库时
+npm run db:patch
+npm run db:sync-json
+```
 
 ---
 
-## 10. 相关命令速查
+## 7. 成本参考（ap-south-1，本机数据库方案）
+
+| 资源 | 月成本（约） |
+|------|--------------|
+| EC2 t3.small | ~$15 |
+| EBS 40GB gp3 | ~$4 |
+| 弹性 IP（绑定实例时免费） | $0 |
+| S3 备份（少量） | ~$1 |
+| **合计** | **~$20/月** |
+
+对比 RDS db.t4g.micro 单独约 **$15/月**，且不含 EC2。本方案一台机器全部搞定，适合当前预算。
+
+---
+
+## 8. 相关命令速查
 
 ```bash
 # 本地开发
 npm run dev -- -p 3005
+npm run db:up                    # docker-compose.yml（开发用）
 
-# 生产构建
-npm run build && npm start
+# 生产数据库
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml down
 
-# 数据库
-npm run db:up          # 本地 Docker PostgreSQL
-npm run db:push        # 同步表结构
-npm run db:seed        # 导入商品 + 管理员
-npm run db:patch       # 补丁特定商品
-npm run db:sync-json   # JSON ↔ 数据同步
+# 数据库维护
+npm run db:push
+npm run db:seed
+npm run db:patch
+npm run db:sync-json
+
+# 生产运行
+npm run build && npm start       # 或由 PM2 管理
 ```
 
 ---
 
-## 11. 安全建议
+## 9. 安全建议
 
 1. **立即修改** seed 创建的默认管理员密码
-2. RDS 使用强密码，启用自动备份（7 天保留）
-3. 生产环境 `AUTH_SECRET` 存入 Secrets Manager，不要写在代码或明文环境文件
-4. 限制 `/admin` 访问（可选：IP 白名单、WAF 规则）
-5. 启用 AWS CloudWatch 告警（5xx 错误、RDS CPU/存储）
-6. 定期更新依赖：`npm audit`
+2. PostgreSQL **仅监听 127.0.0.1**，安全组不开放 5432
+3. 使用强 `POSTGRES_PASSWORD` 和 `AUTH_SECRET`
+4. SSH 仅允许运维 IP，禁用密码登录、使用密钥
+5. 配置数据库定时备份并上传 S3
+6. 可选：Nginx 对 `/admin` 做 IP 白名单
+7. 定期 `dnf update` / `apt upgrade` 和 `npm audit`
+
+---
+
+## 附录：其他方案（不推荐）
+
+### 为什么不推荐 RDS？
+
+- 最小实例约 $15/月，与应用 EC2 叠加后成本高
+- 当前流量与数据量，本机 PostgreSQL 完全够用
+- 通过 Docker 卷 + 定时 pg_dump 可满足备份需求
+
+若未来流量显著增长，再考虑迁移到 RDS：用 `pg_dump` 导出 → RDS 导入 → 修改 `DATABASE_URL` 即可。
+
+### Amplify / ECS Fargate
+
+- **Amplify**：托管前端，仍需外部数据库；无法在本机跑 PostgreSQL，需 RDS 或第二台 EC2
+- **ECS Fargate**：容器编排 + ALB，成本高，数据库仍需 RDS 或独立 EC2
+
+当前阶段 **不建议** 使用以上方案。
 
 ---
 
 **仓库：** https://github.com/Allan-Pan9889/Prospshop  
-**文档版本：** 2026-07-08
+**文档版本：** 2026-07-08（本机 PostgreSQL 方案）
