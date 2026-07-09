@@ -150,14 +150,19 @@ export default function Header() {
         <header className="site-header header-clone">
           <div className="header-inner">
             <div className="container header-container clone-layout">
-              <div className="header-logo clone-logo desktop-only">
+              <div className="clone-logo desktop-only">
                 <Logo variant="compact" />
               </div>
-              <nav className="header-nav desktop-only">
+              <nav className="header-nav desktop-only" aria-label="Sticky navigation">
                 <ul>
                   {NAV_LINKS.map((link) => (
                     <li key={link.href}>
-                      <Link href={link.href}>{link.label}</Link>
+                      <Link
+                        href={link.href}
+                        className={isActive(link.href) ? "active" : ""}
+                      >
+                        {link.label}
+                      </Link>
                     </li>
                   ))}
                 </ul>
