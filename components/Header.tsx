@@ -150,9 +150,26 @@ export default function Header() {
         <header className="site-header header-clone">
           <div className="header-inner">
             <div className="container header-container clone-layout">
+              <button
+                className="mobile-menu-btn mobile-only"
+                aria-label="Open mobile menu"
+                onClick={() => setMobileMenuOpen(true)}
+              >
+                <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
+                  <rect width="20" height="2" fill="currentColor" />
+                  <rect y="6" width="20" height="2" fill="currentColor" />
+                  <rect y="12" width="20" height="2" fill="currentColor" />
+                </svg>
+                <span>Menu</span>
+              </button>
+
               <div className="clone-logo desktop-only">
                 <Logo variant="compact" />
               </div>
+              <div className="header-logo clone-logo-mobile mobile-only">
+                <Logo variant="compact" />
+              </div>
+
               <nav className="header-nav desktop-only" aria-label="Sticky navigation">
                 <ul>
                   {NAV_LINKS.map((link) => (
@@ -184,6 +201,15 @@ export default function Header() {
                   Search
                 </button>
               </div>
+
+              <button className="header-cart mobile-only" onClick={openCartSidebar}>
+                <svg width="20" height="22" viewBox="0 0 20 22" fill="none">
+                  <path d="M1 1h3l2 13h10l2-9H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="9" cy="20" r="1.5" fill="currentColor" />
+                  <circle cx="16" cy="20" r="1.5" fill="currentColor" />
+                </svg>
+                <span className="cart-count-mobile">{itemCount}</span>
+              </button>
             </div>
           </div>
         </header>
