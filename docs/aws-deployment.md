@@ -164,7 +164,7 @@ npm run build
 
 初始化完成后：
 
-- 管理员：`admin@prospshop.in` / `admin123456`
+- 管理员：`admin@tradexelh.com` / `admin123456`
 - **部署后务必修改管理员密码**
 
 ### A.7 使用 PM2 守护 Next.js

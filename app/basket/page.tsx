@@ -2,7 +2,7 @@ import PageTitle from "@/components/PageTitle";
 import BasketContent from "@/components/BasketContent";
 
 export const metadata = {
-  title: "Basket – Prospirete Crest Technologies Private Limited",
+  title: "Basket – Tradexel Digitech Private Limited",
 };
 
 export default function BasketPage() {

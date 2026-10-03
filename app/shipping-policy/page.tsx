@@ -1,6 +1,6 @@
 import PolicyPage from "@/components/PolicyPage";
 
-export const metadata = { title: "Shipping Policy – Prospirete Crest Technologies" };
+export const metadata = { title: "Shipping Policy – Tradexel Digitech" };
 
 export default function Page() {
   return (

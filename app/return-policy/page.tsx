@@ -1,6 +1,6 @@
 import PolicyPage from "@/components/PolicyPage";
 
-export const metadata = { title: "Return Policy – Prospirete Crest Technologies" };
+export const metadata = { title: "Return Policy – Tradexel Digitech" };
 
 export default function Page() {
   return (
@@ -12,7 +12,7 @@ export default function Page() {
       </p>
       <h4>How to Return</h4>
       <ol>
-        <li>Contact us at support@prospshop.com with your order number</li>
+        <li>Contact us at support@tradexelh.com with your order number</li>
         <li>We will provide a return authorization and shipping instructions</li>
         <li>Pack the item securely and ship it to the address provided</li>
       </ol>

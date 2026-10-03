@@ -23,8 +23,8 @@
   --btn-default-bgcolor: rgb(34, 40, 49);
   --btn-default-bgcolor-hover: rgb(34, 40, 49);
   --site-width: 1160px;
-  --header-height: 120px;
-  --header-height-mobile: 72px;
+  --header-height: 88px;
+  --header-height-mobile: 64px;
   --header-bg: rgb(255, 255, 255);
   --footer-bg: rgb(0, 0, 0);
 }
@@ -110,7 +110,7 @@ img {
   left: 0;
   right: 0;
   z-index: 391;
-  height: 72px;
+  height: 64px;
   animation: slideDown 0.3s ease;
 }
 
@@ -124,7 +124,7 @@ img {
 }
 
 .header-clone .header-inner {
-  height: 72px;
+  height: 64px;
 }
 
 .header-container {
@@ -204,25 +204,25 @@ img {
 }
 
 .site-logo--header .site-logo-image {
-  height: 100px;
+  height: 48px;
   width: auto;
-  max-width: min(380px, 46vw);
+  max-width: min(260px, 48vw);
 }
 
 .site-logo--compact .site-logo-image {
-  height: 52px;
+  height: 36px;
   width: auto;
-  max-width: min(230px, 60vw);
+  max-width: min(200px, 55vw);
 }
 
 .site-logo--footer .site-logo-image {
-  height: 120px;
+  height: 56px;
   width: auto;
-  max-width: 420px;
+  max-width: 300px;
 }
 
 .header-clone .site-logo--compact .site-logo-image {
-  height: 44px;
+  height: 34px;
   max-width: min(180px, 28vw);
 }
 
@@ -731,8 +731,16 @@ img {
 .footer-desc {
   color: #fff;
   font-size: 14px;
+  line-height: 1.8;
+  max-width: 700px;
+  margin: 0 auto 20px;
+}
+
+.footer-address {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
   line-height: 1.7;
-  max-width: 800px;
+  max-width: 700px;
   margin: 0 auto 25px;
 }
 
@@ -913,9 +921,9 @@ img {
   .header-clone .clone-logo-mobile .site-logo--compact .site-logo-image,
   .site-logo--compact.logo-mobile .site-logo-image,
   .header-logo .logo-mobile .site-logo-image {
-    height: 48px;
+    height: 34px;
     width: auto;
-    max-width: min(180px, 52vw);
+    max-width: min(170px, 52vw);
   }
 
   .product-grid {

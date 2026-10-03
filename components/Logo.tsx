@@ -6,10 +6,11 @@ interface LogoProps {
   className?: string;
 }
 
+/** Aspect ~5.07:1 after crop (2049×404) */
 const LOGO_SIZES = {
-  header: { width: 360, height: 100 },
-  compact: { width: 220, height: 56 },
-  footer: { width: 400, height: 120 },
+  header: { width: 244, height: 48 },
+  compact: { width: 183, height: 36 },
+  footer: { width: 284, height: 56 },
 } as const;
 
 export default function Logo({
@@ -18,17 +19,17 @@ export default function Logo({
 }: LogoProps) {
   const size = LOGO_SIZES[variant];
   const src =
-    variant === "footer" ? "/assets/logo-footer.png" : "/assets/logo-header.png";
+    variant === "footer" ? "/assets/logo-footer.png" : "/assets/tradexel.png";
 
   return (
     <Link
       href="/"
       className={`site-logo site-logo--${variant} ${className}`.trim()}
-      aria-label="prospshop"
+      aria-label="Tradexel"
     >
       <Image
         src={src}
-        alt="prospshop — Indian Style · Global Fashion"
+        alt="Tradexel"
         width={size.width}
         height={size.height}
         className="site-logo-image"

@@ -2,7 +2,7 @@ import PageTitle from "@/components/PageTitle";
 import CheckoutContent from "@/components/CheckoutContent";
 
 export const metadata = {
-  title: "Checkout – Prospirete Crest Technologies Private Limited",
+  title: "Checkout – Tradexel Digitech Private Limited",
 };
 
 export default function CheckoutPage() {

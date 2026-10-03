@@ -1,7 +1,7 @@
 import PageTitle from "@/components/PageTitle";
 
 export const metadata = {
-  title: "About us – Prospirete Crest Technologies Private Limited | Woman Fashion Store",
+  title: "About us – Tradexel Digitech Private Limited | Woman Fashion Store",
 };
 
 export default function AboutPage() {
@@ -18,7 +18,7 @@ export default function AboutPage() {
           </h4>
           <div className="content-body">
             <p>
-              Welcome to Prospirete Crest Technologies Private Limited, your
+              Welcome to Tradexel Digitech Private Limited, your
               go-to destination for elegant and stylish women&apos;s Fashion!
               Based in the heart of Tamil Nadu, we are passionate about
               providing high-quality, trendy, and comfortable Kurtis and Sharee
@@ -28,7 +28,7 @@ export default function AboutPage() {
               you covered.
             </p>
             <p>
-              At Prospirete Crest Technologies Private Limited, we believe that
+              At Tradexel Digitech Private Limited, we believe that
               fashion is a reflection of individuality, and we strive to bring
               you an extensive range of designs that fuse tradition with
               contemporary style. Our collections are crafted with the finest
@@ -74,7 +74,7 @@ export default function AboutPage() {
             </ul>
 
             <p>
-              Thank you for choosing Prospirete Crest Technologies Private
+              Thank you for choosing Tradexel Digitech Private
               Limited. Let&apos;s redefine your wardrobe with stylish, modern,
               and comfortable Kurtis and Sharee that enhance your look
               effortlessly!

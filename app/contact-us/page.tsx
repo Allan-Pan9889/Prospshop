@@ -1,7 +1,7 @@
 import PageTitle from "@/components/PageTitle";
 
 export const metadata = {
-  title: "Contact us – Prospirete Crest Technologies Private Limited | Woman Fashion Store",
+  title: "Contact us – Tradexel Digitech Private Limited | Woman Fashion Store",
 };
 
 export default function ContactPage() {
@@ -22,23 +22,23 @@ export default function ContactPage() {
               </p>
               <div className="contact-details">
                 <div className="contact-item">
+                  <strong>Company</strong>
+                  <p>TRADEXEL DIGITECH PRIVATE LIMITED</p>
+                </div>
+                <div className="contact-item">
                   <strong>Email</strong>
                   <p>
-                    <a href="mailto:support@prospshop.com">support@prospshop.com</a>
+                    <a href="mailto:support@tradexelh.com">support@tradexelh.com</a>
                   </p>
                 </div>
                 <div className="contact-item">
                   <strong>Office address</strong>
                   <p>
-                    Building No./Flat No.: No. 4/293, 6th Floor, Trend Works OMR
+                    3/180, Mariyammkoil, Muniyappampalayam
                     <br />
-                    OMR Service Road, Perungudi
+                    Sankari, Salem
                     <br />
-                    Chennai
-                    <br />
-                    State: Tamil Nadu
-                    <br />
-                    PIN Code: 600096
+                    Tamil Nadu - 637301
                   </p>
                 </div>
                 <div className="contact-item">

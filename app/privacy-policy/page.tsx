@@ -1,12 +1,12 @@
 import PolicyPage from "@/components/PolicyPage";
 
-export const metadata = { title: "Privacy Policy – Prospirete Crest Technologies" };
+export const metadata = { title: "Privacy Policy – Tradexel Digitech" };
 
 export default function Page() {
   return (
     <PolicyPage title="Privacy Policy">
       <p>
-        Prospirete Crest Technologies Private Limited (&quot;we&quot;, &quot;our&quot;, or
+        Tradexel Digitech Private Limited (&quot;we&quot;, &quot;our&quot;, or
         &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy
         explains how we collect, use, and safeguard your personal information when
         you visit our website prospshop.com.
@@ -32,7 +32,7 @@ export default function Page() {
       <h4>Contact Us</h4>
       <p>
         If you have questions about this Privacy Policy, please contact us at
-        support@prospshop.com.
+        support@tradexelh.com.
       </p>
     </PolicyPage>
   );

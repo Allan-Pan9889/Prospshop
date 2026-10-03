@@ -16,11 +16,18 @@ export default function Footer() {
         <div className="footer-brand">
           <Logo variant="footer" />
           <p className="footer-desc">
-            Prospirete Crest Technologies Private Limited is a women&apos;s fashion
-            destination celebrating the elegance of traditional sarees. We offer a
-            curated collection that blends heritage with modern style. Our mission is
-            to provide high-quality, stylish sarees that empower every woman to feel
+            Tradexel Digitech Private Limited is a women&apos;s fashion destination
+            celebrating the elegance of traditional sarees. We offer a curated
+            collection that blends heritage with modern style. Our mission is to
+            provide high-quality, stylish sarees that empower every woman to feel
             confident, graceful, and beautiful on every special occasion.
+          </p>
+          <p className="footer-address">
+            TRADEXEL DIGITECH PRIVATE LIMITED
+            <br />
+            3/180, Mariyammkoil, Muniyappampalayam
+            <br />
+            Sankari, Salem, Tamil Nadu - 637301
           </p>
           <nav className="footer-links" aria-label="Footer policies">
             <ul>
@@ -36,8 +43,8 @@ export default function Footer() {
       <div className="footer-copyright">
         <div className="container">
           <p>
-            &copy; 2025 | Prospirete Crest Technologies Private Limited. All rights
-            reserved.
+            &copy; {new Date().getFullYear()} | Tradexel Digitech Private Limited.
+            All rights reserved.
           </p>
         </div>
       </div>

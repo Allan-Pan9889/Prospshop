@@ -11,28 +11,48 @@ import type { Product } from "../lib/types";
 
 async function seed() {
   const db = getDb();
+  const ADMIN_EMAIL = "admin@tradexelh.com";
+  const LEGACY_ADMIN_EMAIL = "admin@prospshop.in";
 
   const [existingAdmin] = await db
     .select()
     .from(users)
-    .where(eq(users.email, "admin@prospshop.in"))
+    .where(eq(users.email, ADMIN_EMAIL))
     .limit(1);
 
-  if (!existingAdmin) {
+  const [legacyAdmin] = existingAdmin
+    ? [null]
+    : await db
+        .select()
+        .from(users)
+        .where(eq(users.email, LEGACY_ADMIN_EMAIL))
+        .limit(1);
+
+  if (existingAdmin) {
+    if (existingAdmin.role !== "admin") {
+      await db
+        .update(users)
+        .set({ role: "admin" })
+        .where(eq(users.email, ADMIN_EMAIL));
+      console.log(`Promoted ${ADMIN_EMAIL} to admin`);
+    } else {
+      console.log(`Admin already exists: ${ADMIN_EMAIL}`);
+    }
+  } else if (legacyAdmin) {
+    await db
+      .update(users)
+      .set({ email: ADMIN_EMAIL, role: "admin", name: legacyAdmin.name ?? "Admin" })
+      .where(eq(users.email, LEGACY_ADMIN_EMAIL));
+    console.log(`Migrated admin email: ${LEGACY_ADMIN_EMAIL} → ${ADMIN_EMAIL}`);
+  } else {
     const hashed = await bcrypt.hash("admin123456", 12);
     await db.insert(users).values({
-      email: "admin@prospshop.in",
+      email: ADMIN_EMAIL,
       name: "Admin",
       password: hashed,
       role: "admin",
     });
-    console.log("Created admin: admin@prospshop.in / admin123456");
-  } else if (existingAdmin.role !== "admin") {
-    await db
-      .update(users)
-      .set({ role: "admin" })
-      .where(eq(users.email, "admin@prospshop.in"));
-    console.log("Promoted admin@prospshop.in to admin");
+    console.log(`Created admin: ${ADMIN_EMAIL} / admin123456`);
   }
 
   const [productCount] = await db.select({ count: count() }).from(products);

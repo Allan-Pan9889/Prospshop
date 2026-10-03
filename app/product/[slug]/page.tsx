@@ -20,7 +20,7 @@ export async function generateMetadata({
   const product = await getProductBySlug(slug);
   if (!product) return { title: "Product Not Found" };
   return {
-    title: `${product.title} – Prospirete Crest Technologies Private Limited`,
+    title: `${product.title} – Tradexel Digitech Private Limited`,
   };
 }
 

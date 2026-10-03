@@ -1,6 +1,6 @@
 import PolicyPage from "@/components/PolicyPage";
 
-export const metadata = { title: "Terms and Conditions – Prospirete Crest Technologies" };
+export const metadata = { title: "Terms and Conditions – Tradexel Digitech" };
 
 export default function Page() {
   return (
@@ -28,7 +28,7 @@ export default function Page() {
       <h4>Intellectual Property</h4>
       <p>
         All content on this website, including images, text, and logos, is the
-        property of Prospirete Crest Technologies Private Limited.
+        property of Tradexel Digitech Private Limited.
       </p>
     </PolicyPage>
   );

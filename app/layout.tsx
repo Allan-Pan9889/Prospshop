@@ -13,9 +13,9 @@ const jost = Jost({
 
 export const metadata: Metadata = {
   title:
-    "Prospirete Crest Technologies Private Limited | Woman Fashion Store – Woman Fashion Collection Kurtis and Sharee",
+    "Tradexel Digitech Private Limited | Woman Fashion Store – Woman Fashion Collection Kurtis and Sharee",
   description:
-    "Prospirete Crest Technologies Private Limited is a women's fashion destination celebrating the elegance of traditional sarees.",
+    "Tradexel Digitech Private Limited is a women's fashion destination celebrating the elegance of traditional sarees.",
 };
 
 export const viewport = {

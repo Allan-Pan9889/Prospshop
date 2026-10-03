@@ -4,7 +4,7 @@ import ShopContent from "@/components/ShopContent";
 import { getAllProducts } from "@/lib/products";
 
 export const metadata = {
-  title: "Shop – Prospirete Crest Technologies Private Limited | Woman Fashion Store",
+  title: "Shop – Tradexel Digitech Private Limited | Woman Fashion Store",
 };
 
 export default async function ShopPage() {

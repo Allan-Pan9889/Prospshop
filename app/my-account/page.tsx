@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { getOrdersForUser } from "@/lib/orders";
 
 export const metadata = {
-  title: "My account – Prospirete Crest Technologies Private Limited",
+  title: "My account – Tradexel Digitech Private Limited",
 };
 
 export default async function MyAccountPage() {
