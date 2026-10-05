@@ -722,9 +722,14 @@ img {
   text-align: center;
 }
 
-.footer-brand img {
+.footer-brand .site-logo {
+  display: inline-flex;
   margin: 0 auto 25px;
-  max-width: 300px;
+}
+
+.footer-brand .site-logo-image {
+  margin: 0 auto;
+  max-width: 280px;
   height: auto;
 }
 

@@ -19,7 +19,7 @@ export default function Logo({
 }: LogoProps) {
   const size = LOGO_SIZES[variant];
   const src =
-    variant === "footer" ? "/assets/logo-footer.png" : "/assets/tradexel.png";
+    variant === "footer" ? "/assets/tradexel-footer.png" : "/assets/tradexel.png";
 
   return (
     <Link
