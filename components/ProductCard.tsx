@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/lib/types";
+import { rewriteLegacyAssetUrl } from "@/lib/asset-url";
 import { formatPrice } from "@/lib/types";
 import { useCart } from "@/contexts/CartContext";
 import { useModal } from "@/contexts/ModalContext";
@@ -25,7 +26,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         <Link href={`/product/${product.slug}`} className="product-image-link">
           {product.image ? (
             <Image
-              src={product.image}
+              src={rewriteLegacyAssetUrl(product.image)}
               alt={product.title}
               width={638}
               height={800}
@@ -49,22 +50,22 @@ export default function ProductCard({ product }: ProductCardProps) {
       </div>
       <div className="product-info">
         <h3 className="product-title">
-          <Link href={`/product/${product.slug}`}>{product.title}</Link>
+          <Link href={`/product/${product.slug}`} title={product.title}>
+            {product.title}
+          </Link>
         </h3>
-        {product.categories.length > 0 && (
-          <div className="product-categories">
-            {product.categories.map((cat, i) => (
-              <span key={cat}>
-                <Link
-                  href={`/shop?category=${cat.toLowerCase().replace(/\s+/g, "-")}`}
-                >
-                  {cat}
-                </Link>
-                {i < product.categories.length - 1 && ", "}
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="product-categories" title={product.categories.join(", ")}>
+          {product.categories.map((cat, i) => (
+            <span key={cat}>
+              <Link
+                href={`/shop?category=${cat.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                {cat}
+              </Link>
+              {i < product.categories.length - 1 && ", "}
+            </span>
+          ))}
+        </div>
         <span className="product-price">
           {formatPrice(product.price)} Incl GST.
         </span>

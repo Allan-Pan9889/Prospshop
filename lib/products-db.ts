@@ -1,9 +1,11 @@
-import { eq, desc, ilike, or, sql, count, and, ne } from "drizzle-orm";
+import { eq, desc, asc, ilike, or, sql, count, and, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { products } from "@/lib/db/schema";
 import type { Product, ProductAttribute, ProductDetailInfo } from "@/lib/types";
 import { decodeHtml } from "@/lib/types";
+import { rewriteLegacyAssetUrl, rewriteLegacyAssetUrls } from "@/lib/asset-url";
 import allProducts from "@/data/all-products.json";
+import { escapeLike, type AdminProductFilters } from "@/lib/admin-product-filters";
 
 type DbProduct = typeof products.$inferSelect;
 
@@ -13,8 +15,8 @@ function rowToProduct(row: DbProduct): Product {
     slug: row.slug,
     title: decodeHtml(row.title),
     price: Number(row.price),
-    image: row.image,
-    images: (row.images as string[]) ?? [row.image],
+    image: rewriteLegacyAssetUrl(row.image),
+    images: rewriteLegacyAssetUrls((row.images as string[]) ?? [row.image]),
     categories: (row.categories as string[]) ?? [],
     description: row.description ?? undefined,
     productDetails: (row.productDetails as ProductDetailInfo | null) ?? undefined,
@@ -28,30 +30,17 @@ function rowToProduct(row: DbProduct): Product {
 const jsonCatalog = (allProducts as Product[]).map((p) => ({
   ...p,
   title: decodeHtml(p.title),
+  image: rewriteLegacyAssetUrl(p.image),
+  images: rewriteLegacyAssetUrls(p.images ?? [p.image]),
 }));
 
-function isBuildPhase() {
-  return process.env.NEXT_PHASE === "phase-production-build";
-}
-
-let dbProductCount: number | null = null;
-
-async function hasDbProducts(): Promise<boolean> {
-  if (isBuildPhase()) return false;
-  if (dbProductCount !== null) return dbProductCount > 0;
-  try {
-    const db = getDb();
-    const [result] = await db.select({ count: count() }).from(products);
-    dbProductCount = result.count;
-    return result.count > 0;
-  } catch {
-    dbProductCount = 0;
-    return false;
-  }
+// JSON is an explicit no-database demo mode, never a recovery source for live data.
+function useJsonCatalog(): boolean {
+  return !process.env.DATABASE_URL;
 }
 
 export async function getAllProducts(): Promise<Product[]> {
-  if (!(await hasDbProducts())) return jsonCatalog;
+  if (useJsonCatalog()) return jsonCatalog;
 
   const db = getDb();
   const rows = await db
@@ -64,7 +53,7 @@ export async function getAllProducts(): Promise<Product[]> {
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
-  if (!(await hasDbProducts())) {
+  if (useJsonCatalog()) {
     return jsonCatalog.find((p) => p.slug === slug);
   }
 
@@ -79,7 +68,7 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
 }
 
 export async function getAllSlugs(): Promise<string[]> {
-  if (!(await hasDbProducts())) return jsonCatalog.map((p) => p.slug);
+  if (useJsonCatalog()) return jsonCatalog.map((p) => p.slug);
 
   const db = getDb();
   const rows = await db
@@ -93,7 +82,7 @@ export async function searchProducts(query: string, limit = 20): Promise<Product
   const q = query.toLowerCase().trim();
   if (!q) return [];
 
-  if (!(await hasDbProducts())) {
+  if (useJsonCatalog()) {
     return jsonCatalog
       .filter(
         (p) =>
@@ -127,7 +116,7 @@ export async function getRelatedProducts(
 ): Promise<Product[]> {
   const cat = product.categories[0];
 
-  if (!(await hasDbProducts())) {
+  if (useJsonCatalog()) {
     if (!cat) return jsonCatalog.filter((p) => p.slug !== product.slug).slice(0, limit);
     return jsonCatalog
       .filter((p) => p.slug !== product.slug && p.categories.includes(cat))
@@ -155,15 +144,71 @@ export async function getRelatedProducts(
 }
 
 // Admin helpers
+function rewriteAdminRow<T extends { image: string; images: unknown }>(row: T): T {
+  return {
+    ...row,
+    image: rewriteLegacyAssetUrl(row.image),
+    images: rewriteLegacyAssetUrls((row.images as string[]) ?? [row.image]),
+  };
+}
+
 export async function getAllProductsAdmin() {
   const db = getDb();
-  return db.select().from(products).orderBy(desc(products.updatedAt));
+  const rows = await db.select().from(products).orderBy(desc(products.updatedAt));
+  return rows.map(rewriteAdminRow);
+}
+
+export async function getProductsAdminPage(filters: AdminProductFilters) {
+  const db = getDb();
+  const conditions = [];
+  for (const term of filters.q.split(/\s+/).filter(Boolean)) {
+    const pattern = `%${escapeLike(term)}%`;
+    conditions.push(or(
+      ilike(products.title, pattern),
+      ilike(products.slug, pattern),
+      ilike(products.description, pattern)
+    ));
+  }
+  if (filters.category) {
+    conditions.push(sql`${products.categories} @> ${JSON.stringify([filters.category])}::jsonb`);
+  }
+  const where = and(...conditions);
+  const [[result], categoryRows] = await Promise.all([
+    db.select({ count: count() }).from(products).where(where),
+    db.selectDistinct({
+      category: sql<string>`jsonb_array_elements_text(coalesce(${products.categories}, '[]'::jsonb))`,
+    }).from(products),
+  ]);
+  const total = result.count;
+  const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
+  const page = Math.min(filters.page, totalPages);
+  const rows = await db.select({
+    id: products.id,
+    slug: products.slug,
+    title: products.title,
+    price: products.price,
+    image: products.image,
+    categories: products.categories,
+    status: products.status,
+    inStock: products.inStock,
+  }).from(products).where(where)
+    .orderBy(desc(products.updatedAt), asc(products.id))
+    .limit(filters.pageSize).offset((page - 1) * filters.pageSize);
+
+  return {
+    products: rows.map((row) => ({ ...row, image: rewriteLegacyAssetUrl(row.image) })),
+    total,
+    totalPages,
+    page,
+    categories: categoryRows.map((row) => row.category).filter(Boolean)
+      .sort((a, b) => a.localeCompare(b)),
+  };
 }
 
 export async function getProductByIdAdmin(id: string) {
   const db = getDb();
   const [row] = await db.select().from(products).where(eq(products.id, id)).limit(1);
-  return row ?? null;
+  return row ? rewriteAdminRow(row) : null;
 }
 
 export async function createProduct(data: {
@@ -188,8 +233,8 @@ export async function createProduct(data: {
       slug: data.slug,
       title: data.title,
       price: String(data.price),
-      image: data.image,
-      images: data.images ?? [data.image],
+      image: rewriteLegacyAssetUrl(data.image),
+      images: rewriteLegacyAssetUrls(data.images ?? [data.image]),
       categories: data.categories ?? [],
       description: data.description ?? null,
       productDetails: data.productDetails ?? null,
@@ -228,13 +273,13 @@ export async function updateProduct(
   if (data.title !== undefined) updateData.title = data.title;
   if (data.price !== undefined) updateData.price = String(data.price);
   if (data.image !== undefined && data.image.trim() !== "") {
-    updateData.image = data.image.trim();
+    updateData.image = rewriteLegacyAssetUrl(data.image);
     if (data.images === undefined) {
-      updateData.images = [data.image.trim()];
+      updateData.images = [rewriteLegacyAssetUrl(data.image)];
     }
   }
   if (data.images !== undefined) {
-    updateData.images = data.images.filter((url) => url.trim() !== "");
+    updateData.images = rewriteLegacyAssetUrls(data.images);
   }
   if (data.categories !== undefined) updateData.categories = data.categories;
   if (data.description !== undefined) updateData.description = data.description;

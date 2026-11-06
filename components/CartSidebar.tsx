@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useModal } from "@/contexts/ModalContext";
 import { useCart } from "@/contexts/CartContext";
+import { rewriteLegacyAssetUrl } from "@/lib/asset-url";
 import { formatPrice } from "@/lib/types";
 
 export default function CartSidebar() {
@@ -33,7 +34,7 @@ export default function CartSidebar() {
                     onClick={closeCartSidebar}
                   >
                     <Image
-                      src={item.image}
+                      src={rewriteLegacyAssetUrl(item.image)}
                       alt={item.title}
                       width={80}
                       height={100}

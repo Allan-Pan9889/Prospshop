@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { rewriteLegacyAssetUrl } from "@/lib/asset-url";
 import { formatPrice } from "@/lib/types";
 import type { Product } from "@/lib/types";
 
@@ -26,7 +27,7 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
 
   useEffect(() => {
     if (query.length >= 2) {
-      fetch(`/api/search?q=${encodeURIComponent(query)}&limit=8`)
+      fetch(`/api/search?q=${encodeURIComponent(query)}&limit=8`, { cache: "no-store" })
         .then((res) => res.json())
         .then(setResults)
         .catch(() => setResults([]));
@@ -82,7 +83,7 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                 onClick={onClose}
               >
                 <Image
-                  src={p.image}
+                  src={rewriteLegacyAssetUrl(p.image)}
                   alt={p.title}
                   width={60}
                   height={75}

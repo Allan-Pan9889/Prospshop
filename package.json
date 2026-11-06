@@ -13,8 +13,12 @@
     "db:seed": "npx tsx scripts/seed.ts",
     "db:patch": "npx tsx scripts/patch-products.ts",
     "db:sync-json": "npx tsx scripts/sync-product-json.ts",
+    "db:rewrite-images": "npx tsx scripts/rewrite-image-urls.ts",
     "db:studio": "drizzle-kit studio",
-    "db:up": "docker compose up -d"
+    "db:up": "docker compose up -d",
+    "catalog:match": "python3 scripts/assign-catalog-images.py",
+    "catalog:check": "python3 scripts/assign-catalog-images.py --check && python3 -m unittest discover -s tests -p test_catalog_matching.py && node --test tests/asset-url.test.cjs",
+    "db:sync-images": "node scripts/sync-catalog-images.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",

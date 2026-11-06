@@ -3,6 +3,8 @@ import PageTitle from "@/components/PageTitle";
 import ShopContent from "@/components/ShopContent";
 import { getAllProducts } from "@/lib/products";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Shop – Tradexel Digitech Private Limited | Woman Fashion Store",
 };

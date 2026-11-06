@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidateProductPages } from "@/lib/product-cache";
 import { requireAdminApi } from "@/lib/admin-api";
 import {
   getAllProductsAdmin,
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
 
   try {
     const product = await createProduct(parsed.data);
+    revalidateProductPages();
     return NextResponse.json(product, { status: 201 });
   } catch (err) {
     console.error(err);

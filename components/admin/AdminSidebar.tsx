@@ -20,7 +20,7 @@ export default function AdminSidebar({ userName }: AdminSidebarProps) {
   return (
     <aside className="admin-sidebar">
       <div className="admin-brand">
-          <Link href="/admin">prospshop.com Admin</Link>
+        <Link href="/admin">tradexelh.com Admin</Link>
       </div>
       <nav className="admin-nav">
         {NAV.map((item) => {

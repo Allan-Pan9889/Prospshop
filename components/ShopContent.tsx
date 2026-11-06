@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type CSSProperties } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/types";
@@ -176,8 +176,8 @@ export default function ShopContent({ products, totalCount }: ShopContentProps) 
               <div
                 className="product-grid"
                 style={{
-                  gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-                }}
+                  "--product-grid-columns": gridCols,
+                } as CSSProperties}
               >
                 {visible.map((product) => (
                   <ProductCard key={product.slug} product={product} />

@@ -13,8 +13,8 @@ https://prospshop.in 的像素级前端复刻项目。
 
 ### 页面
 - **首页** — Banner、Our Recommendations、Best Collection
-- **Shop** — 284+ 商品、分类筛选、排序、搜索、Load More
-- **商品详情** — 284 个静态页面、图片画廊、相关商品
+- **Shop** — 570 个商品、分类筛选、排序、搜索、Load More
+- **商品详情** — 动态商品详情、图片画廊、相关商品
 - **About us / Contact us** — 内容页 + 联系表单
 - **Basket / Checkout** — 购物车与结账流程
 - **My Account** — 登录/注册表单
@@ -87,6 +87,13 @@ public/assets/        # Logo、Banner 本地资源
 
 ## 说明
 
-- 商品图片使用 prospshop.in 原始 CDN
+- 商品图片保存在 `public/catalog/`，覆盖全部 570 个商品；维护方法见 [商品图片维护](docs/catalog-images.md)
 - 购物车数据保存在浏览器 localStorage
-- 结账/登录为前端模拟，无真实后端
+- 注册、登录和订单使用 PostgreSQL 后端；尚未接入在线支付
+
+## 商品数据同步
+
+- 配置 `DATABASE_URL` 后，首页、商城、搜索和商品详情均以数据库中的已发布商品为准。
+- 后台新增、编辑、下架或删除后，前台在下一次页面请求时读取新数据，无需重新构建。已打开的页面需刷新。
+- 首页保留精选商品顺序，但标题、价格、图片和上架状态实时来自数据库；已删除或下架的精选项由其他已发布商品补位。
+- 仅未配置 `DATABASE_URL` 时使用 JSON 演示目录。数据库为空或连接失败时不会回退到初始目录，避免重新展示已删除商品。

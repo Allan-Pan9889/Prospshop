@@ -7,6 +7,7 @@ import { count, eq } from "drizzle-orm";
 import { getDb } from "../lib/db";
 import { users, products } from "../lib/db/schema";
 import allProducts from "../data/all-products.json";
+import { rewriteLegacyAssetUrl, rewriteLegacyAssetUrls } from "../lib/asset-url";
 import type { Product } from "../lib/types";
 
 async function seed() {
@@ -71,8 +72,8 @@ async function seed() {
         slug: p.slug,
         title: p.title,
         price: String(p.price),
-        image: p.image,
-        images: p.images ?? [p.image],
+        image: rewriteLegacyAssetUrl(p.image),
+        images: rewriteLegacyAssetUrls(p.images ?? [p.image]),
         categories: p.categories ?? [],
         description: p.description ?? null,
         productDetails: p.productDetails ?? null,

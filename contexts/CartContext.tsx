@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { rewriteLegacyAssetUrl } from "@/lib/asset-url";
 import type { Product, CartItem } from "@/lib/types";
 import {
   buildCartTitle,
@@ -78,7 +79,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             slug: product.slug,
             title: buildCartTitle(product.title, options),
             price: product.price,
-            image: product.image,
+            image: rewriteLegacyAssetUrl(product.image),
             quantity: qty,
             options,
           },

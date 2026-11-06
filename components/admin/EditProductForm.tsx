@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { rewriteLegacyAssetUrl } from "@/lib/asset-url";
 
 interface ProductFormProps {
   product: {
@@ -148,13 +149,13 @@ export default function EditProductPage({ product }: ProductFormProps) {
             type="text"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://prospshop.in/wp-content/uploads/..."
+            placeholder="/wp-content/uploads/..."
             required
           />
           {imageUrl ? (
             <div className="admin-image-preview">
               <Image
-                src={imageUrl}
+                src={rewriteLegacyAssetUrl(imageUrl)}
                 alt={product.title}
                 width={120}
                 height={150}

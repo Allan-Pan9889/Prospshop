@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidateProductPages } from "@/lib/product-cache";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getProductByIdAdmin, updateProduct, deleteProduct } from "@/lib/products-db";
 
@@ -60,6 +61,7 @@ export async function PATCH(
   if (!product) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  revalidateProductPages();
   return NextResponse.json(product);
 }
 
@@ -72,5 +74,6 @@ export async function DELETE(
 
   const { id } = await params;
   await deleteProduct(id);
+  revalidateProductPages();
   return NextResponse.json({ ok: true });
 }

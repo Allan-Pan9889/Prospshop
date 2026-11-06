@@ -1,14 +1,12 @@
-import HeroBanner from "@/components/HeroBanner";
 import ProductSection from "@/components/ProductSection";
-import productData from "@/data/products.json";
-import type { ProductData } from "@/lib/types";
+import { getHomepageData } from "@/lib/products";
 
-const data = productData as ProductData;
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const data = await getHomepageData();
   return (
     <>
-      <HeroBanner />
       <ProductSection
         title="Our Recommendations"
         products={data.recommendations}

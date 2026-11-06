@@ -16,8 +16,8 @@
 | 框架 | Next.js 15 App Router（SSR + API Routes） |
 | 数据库 | PostgreSQL 16（本机 Docker 容器） |
 | 认证 | NextAuth.js v5（Credentials + JWT） |
-| 构建 | `npm run build` 生成约 597 个静态/预渲染页面 |
-| 运行时 | 连接本机 PostgreSQL；无 DB 时回退到 JSON 商品数据 |
+| 构建 | `npm run build` 生成生产包；商品相关页面按请求动态渲染 |
+| 运行时 | 已配置 DATABASE_URL 时仅使用 PostgreSQL；未配置时使用 JSON 演示数据 |
 
 ### 推荐架构（低成本）
 
@@ -352,7 +352,7 @@ GitHub Secrets：
 
 ### 构建内存不足
 
-`npm run build` 需预渲染 597 页，至少 **2GB RAM**。若 OOM，临时加 swap：
+商品页面按请求动态渲染。若服务器在构建时内存不足，可临时加 swap：
 
 ```bash
 sudo fallocate -l 2G /swapfile

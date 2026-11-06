@@ -28,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-GB">
-      <body className={jost.variable}>
+    <html lang="en-GB" className={jost.variable}>
+      <body>
         <Providers>
           <SiteChrome>{children}</SiteChrome>
         </Providers>

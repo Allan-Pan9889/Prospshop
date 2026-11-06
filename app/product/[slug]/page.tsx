@@ -2,14 +2,10 @@ import { notFound } from "next/navigation";
 import ProductDetail from "@/components/ProductDetail";
 import {
   getProductBySlug,
-  getAllSlugs,
   getRelatedProducts,
 } from "@/lib/products";
 
-export async function generateStaticParams() {
-  const slugs = await getAllSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -18,7 +14,7 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
-  if (!product) return { title: "Product Not Found" };
+  if (!product) notFound();
   return {
     title: `${product.title} – Tradexel Digitech Private Limited`,
   };
